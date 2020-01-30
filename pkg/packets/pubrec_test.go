@@ -19,7 +19,7 @@ func TestWritePubrecPacket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
-	packet, err := NewReader(buf).ReadPacket()
+	packet, err := NewReader(buf).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
@@ -39,7 +39,7 @@ func TestWritePubrecPacket(t *testing.T) {
 
 func TestReadPubrecPacket(t *testing.T) {
 	pubrecBytes := bytes.NewBuffer([]byte{0x50, 2, 0, 1})
-	packet, err := NewReader(pubrecBytes).ReadPacket()
+	packet, err := NewReader(pubrecBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}

@@ -9,6 +9,7 @@ import (
 
 // Connect represents the MQTT Connect  packet
 type Connect struct {
+	Version   Version
 	FixHeader *FixHeader
 	//Variable header
 	ProtocolLevel byte
@@ -134,15 +135,30 @@ func (c *Connect) Unpack(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(restBuffer[0:6], []byte{0, 4, 77, 81, 84, 84}) { //protocol name
-		return ErrInvalProtocolName // [MQTT-3.1.2-1] 不符合的protocol name直接关闭
+	var size int
+	c.ProtocolName, size, err = DecodeUTF8String(false, restBuffer)
+	if err != nil {
+		return ErrInvalUTF8String
 	}
-	c.ProtocolName = []byte{77, 81, 84, 84}
-	c.ProtocolLevel = restBuffer[6]
-	if c.ProtocolLevel != 0x04 {
+	restBuffer = restBuffer[size:]
+
+	switch restBuffer[0] {
+	case Version_311:
+		if !bytes.Equal(c.ProtocolName, []byte{'M', 'Q', 'T', 'T'}) {
+			return ErrInvalProtocolName
+		}
+	case Version_31:
+		if !bytes.Equal(c.ProtocolName, []byte{'M', 'Q', 'I', 's', 'd', 'p'}) {
+			return ErrInvalProtocolName
+		}
+	default:
 		c.AckCode = CodeUnacceptableProtocolVersion // [MQTT-3.1.2-2]
 	}
-	connectFlags := restBuffer[7]
+
+	c.ProtocolLevel = restBuffer[0]
+	c.Version = restBuffer[0]
+
+	connectFlags := restBuffer[1]
 	reserved := 1 & connectFlags
 	if reserved != 0 { //[MQTT-3.1.2-3]
 		return ErrInvalConnFlags
@@ -159,32 +175,38 @@ func (c *Connect) Unpack(r io.Reader) error {
 	}
 	c.PasswordFlag = (1 & (connectFlags >> 6)) > 0
 	c.UsernameFlag = (1 & (connectFlags >> 7)) > 0
-	c.KeepAlive = binary.BigEndian.Uint16(restBuffer[8:10])
-	return c.unpackPayload(restBuffer[10:])
+	c.KeepAlive = binary.BigEndian.Uint16(restBuffer[2:4])
+	return c.unpackPayload(restBuffer[4:])
 }
 
 func (c *Connect) unpackPayload(restBuffer []byte) error {
 	var vh []byte
 	var size int
 	var err error
-	vh, size, err = DecodeUTF8String(restBuffer)
+	mustUTF8 := true
+	if c.Version == Version_31 {
+		mustUTF8 = false
+	}
+	vh, size, err = DecodeUTF8String(mustUTF8, restBuffer)
 	if err != nil {
 		return err
 	}
 	restBuffer = restBuffer[size:]
 	c.ClientID = vh
-	if len(c.ClientID) == 0 && !c.CleanSession { //[MQTT-3.1.3-7]
+
+	if (c.Version == Version_31 && (len(c.ClientID) > 23 || len(c.ClientID) == 0)) || // v3.1
+		(len(c.ClientID) == 0 && !c.CleanSession) { //[MQTT-3.1.3-7]
 		c.AckCode = CodeIdentifierRejected //[MQTT-3.1.3-8]
 	}
 
 	if c.WillFlag {
-		vh, size, err = DecodeUTF8String(restBuffer)
+		vh, size, err = DecodeUTF8String(true, restBuffer)
 		if err != nil {
 			return err
 		}
 		restBuffer = restBuffer[size:]
 		c.WillTopic = vh
-		vh, size, err = DecodeUTF8String(restBuffer)
+		vh, size, err = DecodeUTF8String(true, restBuffer)
 		if err != nil {
 			return err
 		}
@@ -193,7 +215,7 @@ func (c *Connect) unpackPayload(restBuffer []byte) error {
 	}
 
 	if c.UsernameFlag {
-		vh, size, err = DecodeUTF8String(restBuffer)
+		vh, size, err = DecodeUTF8String(true, restBuffer)
 		if err != nil {
 			return err
 		}
@@ -201,7 +223,7 @@ func (c *Connect) unpackPayload(restBuffer []byte) error {
 		c.Username = vh
 	}
 	if c.PasswordFlag {
-		vh, size, err = DecodeUTF8String(restBuffer)
+		vh, size, err = DecodeUTF8String(true, restBuffer)
 		if err != nil {
 			return err
 		}
@@ -228,16 +250,17 @@ func NewConnectPacket(fh *FixHeader, r io.Reader) (*Connect, error) {
 
 // NewConnackPacket returns the Connack struct which is the ack packet of the Connect packet.
 func (c *Connect) NewConnackPacket(sessionReuse bool) *Connack {
-	//b1 := buffer[0] //一定是16
-	ack := &Connack{}
+	ack := &Connack{Version: c.Version} // same version as connect
 	ack.Code = c.AckCode
-	if c.CleanSession { //[MQTT-3.2.2-1]
-		ack.SessionPresent = 0
-	} else {
-		if sessionReuse {
-			ack.SessionPresent = 1 //[MQTT-3.2.2-2]
+	if c.Version != Version_31 {
+		if c.CleanSession { //[MQTT-3.2.2-1]
+			ack.SessionPresent = 0
 		} else {
-			ack.SessionPresent = 0 //[MQTT-3.2.2-3]
+			if sessionReuse {
+				ack.SessionPresent = 1 //[MQTT-3.2.2-2]
+			} else {
+				ack.SessionPresent = 0 //[MQTT-3.2.2-3]
+			}
 		}
 	}
 	if ack.Code != CodeAccepted {

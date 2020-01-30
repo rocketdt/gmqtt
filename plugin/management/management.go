@@ -225,7 +225,7 @@ func (m *Management) Subscribe(c *gin.Context) {
 		c.JSON(http.StatusOK, newResponse(nil, nil, packets.ErrInvalQos))
 		return
 	}
-	if !packets.ValidTopicFilter([]byte(topic)) {
+	if !packets.ValidTopicFilter(true, []byte(topic)) {
 		c.JSON(http.StatusOK, newResponse(nil, nil, packets.ErrInvalTopicFilter))
 		return
 	}
@@ -245,7 +245,7 @@ func (m *Management) Unsubscribe(c *gin.Context) {
 	topic := c.PostForm("topic")
 	cid := c.PostForm("clientID")
 
-	if !packets.ValidTopicFilter([]byte(topic)) {
+	if !packets.ValidTopicFilter(true, []byte(topic)) {
 		c.JSON(http.StatusOK, newResponse(nil, nil, packets.ErrInvalTopicFilter))
 		return
 	}
@@ -273,7 +273,7 @@ func (m *Management) Publish(c *gin.Context) {
 		c.JSON(http.StatusOK, newResponse(nil, nil, packets.ErrInvalQos))
 		return
 	}
-	if !packets.ValidTopicName([]byte(topic)) {
+	if !packets.ValidTopicName(true, []byte(topic)) {
 		c.JSON(http.StatusOK, newResponse(nil, nil, packets.ErrInvalTopicFilter))
 		return
 	}

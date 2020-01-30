@@ -61,6 +61,15 @@ const (
 	SUBSCRIBE_FAILURE       = 0x80
 )
 
+// MQTT Version
+type Version = byte
+
+const (
+	Version_31  Version = 0x03
+	Version_311 Version = 0x04
+	Version_5   Version = 0x05
+)
+
 //PacketID is the type of packet identifier
 type PacketID = uint16
 
@@ -137,7 +146,7 @@ func NewWriter(w io.Writer) *Writer {
 
 // ReadPacket reads data from Reader and returns a  Packet instance.
 // If any errors occurs, returns nil, error
-func (r *Reader) ReadPacket() (Packet, error) {
+func (r *Reader) ReadPacket(version Version) (Packet, error) {
 	first, err := r.bufr.ReadByte()
 
 	if err != nil {
@@ -149,7 +158,7 @@ func (r *Reader) ReadPacket() (Packet, error) {
 		return nil, err
 	}
 	fh.RemainLength = length
-	packet, err := NewPacket(fh, r.bufr)
+	packet, err := NewPacket(fh, version, r.bufr)
 	return packet, err
 }
 
@@ -261,7 +270,7 @@ func EncodeUTF8String(buf []byte) (b []byte, size int, err error) {
 }
 
 // DecodeUTF8String decodes the  UTF-8 encoded strings into bytes, returns the decoded bytes, bytes size and error.
-func DecodeUTF8String(buf []byte) (b []byte, size int, err error) {
+func DecodeUTF8String(mustUTF8 bool, buf []byte) (b []byte, size int, err error) {
 	buflen := len(buf)
 	if buflen < 2 {
 		return nil, 0, ErrInvalUTF8String
@@ -271,22 +280,23 @@ func DecodeUTF8String(buf []byte) (b []byte, size int, err error) {
 		return nil, 0, ErrInvalUTF8String
 	}
 	payload := buf[2 : length+2]
-	if !ValidUTF8(payload) {
-		return nil, 0, ErrInvalUTF8String
+	if mustUTF8 {
+		if !ValidUTF8(payload) {
+			return nil, 0, ErrInvalUTF8String
+		}
 	}
-
 	return payload, length + 2, nil
 }
 
 // NewPacket returns a packet representing the decoded MQTT packet and an error.
-func NewPacket(fh *FixHeader, r io.Reader) (Packet, error) {
+func NewPacket(fh *FixHeader, version Version, r io.Reader) (Packet, error) {
 	switch fh.PacketType {
 	case CONNECT:
 		return NewConnectPacket(fh, r)
 	case CONNACK:
-		return NewConnackPacket(fh, r)
+		return NewConnackPacket(fh, version, r)
 	case PUBLISH:
-		return NewPublishPacket(fh, r)
+		return NewPublishPacket(fh, version, r)
 	case PUBACK:
 		return NewPubackPacket(fh, r)
 	case PUBREC:
@@ -319,10 +329,7 @@ func NewPacket(fh *FixHeader, r io.Reader) (Packet, error) {
 //
 // ValidUTF8 returns whether the given bytes is in UTF-8 form.
 func ValidUTF8(p []byte) bool {
-	for {
-		if len(p) == 0 {
-			return true
-		}
+	for len(p) > 0 {
 		ru, size := utf8.DecodeRune(p)
 		if ru >= '\u0000' && ru <= '\u001f' { //[MQTT-1.5.3-2]
 			return false
@@ -333,26 +340,24 @@ func ValidUTF8(p []byte) bool {
 		if ru == utf8.RuneError {
 			return false
 		}
-		if !utf8.ValidRune(ru) {
-			return false
-		}
 		if size == 0 {
 			return true
 		}
 		p = p[size:]
 	}
+	return true
 }
 
 // ValidTopicName 验证主题名是否合法  [MQTT-4.7.1-1]
 //
 // ValidTopicName returns whether the bytes is a valid topic name.[MQTT-4.7.1-1].
-func ValidTopicName(p []byte) bool {
+func ValidTopicName(mustUTF8 bool, p []byte) bool {
 	if len(p) == 0 {
 		return false
 	}
-	for {
+	for len(p) > 0 {
 		ru, size := utf8.DecodeRune(p)
-		if !utf8.ValidRune(ru) {
+		if mustUTF8 && ru == utf8.RuneError {
 			return false
 		}
 		if size == 1 {
@@ -361,25 +366,24 @@ func ValidTopicName(p []byte) bool {
 				return false
 			}
 		}
-		if size == 0 {
-			return true
-		}
 		p = p[size:]
 	}
+	return true
 }
 
 // ValidTopicFilter 验证主题过滤器是否合法
 //
 // ValidTopicFilter  returns whether the bytes is a valid topic filter. [MQTT-4.7.1-2]  [MQTT-4.7.1-3]
-func ValidTopicFilter(p []byte) bool {
+func ValidTopicFilter(mustUTF8 bool, p []byte) bool {
 	if len(p) == 0 {
 		return false
 	}
 	var prevByte byte //前一个字节
 	var isSetPrevByte bool
-	for {
+
+	for len(p) > 0 {
 		ru, size := utf8.DecodeRune(p)
-		if !utf8.ValidRune(ru) {
+		if mustUTF8 && ru == utf8.RuneError {
 			return false
 		}
 		if size == 1 && isSetPrevByte {
@@ -397,13 +401,11 @@ func ValidTopicFilter(p []byte) bool {
 				}
 			}
 		}
-		if size == 0 {
-			return true
-		}
 		prevByte = p[0]
 		isSetPrevByte = true
 		p = p[size:]
 	}
+	return true
 }
 
 // TopicMatch 返回topic和topic filter是否

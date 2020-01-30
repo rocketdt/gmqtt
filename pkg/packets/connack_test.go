@@ -34,7 +34,7 @@ func TestReadConnackPacket(t *testing.T) {
 		0, //SessionPresent
 		1, //Code
 	})
-	packet, err := NewReader(connackPacketBytes).ReadPacket()
+	packet, err := NewReader(connackPacketBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}

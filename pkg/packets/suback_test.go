@@ -11,7 +11,7 @@ func TestReadSuback(t *testing.T) {
 		0, 10, //packetID
 		0, 1, 2, //payload
 	})
-	packet, err := NewReader(subackBytes).ReadPacket()
+	packet, err := NewReader(subackBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
@@ -30,7 +30,7 @@ func TestReadSuback(t *testing.T) {
 
 func TestWriteSubackWithOneTopic(t *testing.T) {
 	subscribeBytes := subscribeOneTopicBuffer()
-	packet, err := NewReader(subscribeBytes).ReadPacket()
+	packet, err := NewReader(subscribeBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
@@ -49,7 +49,7 @@ func TestWriteSubackWithOneTopic(t *testing.T) {
 
 func TestWriteSubackWith3Topics(t *testing.T) {
 	subscribeBytes := subscribe3TopicsBuffer()
-	packet, err := NewReader(subscribeBytes).ReadPacket()
+	packet, err := NewReader(subscribeBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}

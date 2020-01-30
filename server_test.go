@@ -2,13 +2,9 @@ package gmqtt
 
 import (
 	"context"
-
 	"net"
-
-	"testing"
-
-	"io"
 	"reflect"
+	"testing"
 
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 )
@@ -66,7 +62,7 @@ func TestHooks(t *testing.T) {
 	w := packets.NewWriter(c)
 	r := packets.NewReader(c)
 	w.WriteAndFlush(defaultConnectPacket())
-	r.ReadPacket()
+	r.ReadPacket(0x04)
 
 	sub := &packets.Subscribe{
 		PacketID: 10,
@@ -75,7 +71,7 @@ func TestHooks(t *testing.T) {
 		},
 	}
 	w.WriteAndFlush(sub)
-	r.ReadPacket() //suback
+	r.ReadPacket(0x04) //suback
 
 	pub := &packets.Publish{
 		Dup:       false,
@@ -86,90 +82,12 @@ func TestHooks(t *testing.T) {
 		Payload:   []byte("payload"),
 	}
 	w.WriteAndFlush(pub)
-	r.ReadPacket() //puback
+	r.ReadPacket(0x04) //puback
 	srv.Stop(context.Background())
 	want := "AcceptOnConnectOnConnectedOnSessionCreatedOnSubscribeOnMsgArrivedOnSessionTerminatedOnCloseOnStop"
 	if hooksStr != want {
 		t.Fatalf("hooksStr error, want %s, got %s", want, hooksStr)
 	}
-}
-
-func TestConnackInvalidCode(t *testing.T) {
-
-	ln, err := net.Listen("tcp", "127.0.0.1:1883")
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	srv := NewServer(WithTCPListener(ln))
-	defer srv.Stop(context.Background())
-	srv.Run()
-	c, err := net.Dial("tcp", "127.0.0.1:1883")
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	w := packets.NewWriter(c)
-	r := packets.NewReader(c)
-	connect := defaultConnectPacket()
-	connect.ProtocolLevel = 0x01
-	w.WriteAndFlush(connect)
-	p, err := r.ReadPacket()
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	if ack, ok := p.(*packets.Connack); ok {
-		if ack.Code != packets.CodeUnacceptableProtocolVersion {
-			t.Fatalf("connack.Code error, want %d, but got %d", packets.CodeUnacceptableProtocolVersion, ack.Code)
-		}
-	} else {
-		t.Fatalf("invalid type, want %v, got %v", reflect.TypeOf(&packets.Connack{}), reflect.TypeOf(p))
-	}
-
-	_, err = r.ReadPacket()
-	if err != io.EOF {
-		t.Fatalf("err error, want %s, but got nil", io.EOF)
-	}
-
-}
-
-func TestConnackInvalidCodeInhooksStr(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:1883")
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	srv := NewServer(
-		WithTCPListener(ln),
-		WithHook(Hooks{
-			OnConnect: func(ctx context.Context, client Client) (code uint8) {
-				return packets.CodeBadUsernameorPsw
-			},
-		}),
-	)
-	defer srv.Stop(context.Background())
-	srv.Run()
-	c, err := net.Dial("tcp", "127.0.0.1:1883")
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	w := packets.NewWriter(c)
-	r := packets.NewReader(c)
-	connect := defaultConnectPacket()
-	w.WriteAndFlush(connect)
-	p, err := r.ReadPacket()
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	if ack, ok := p.(*packets.Connack); ok {
-		if ack.Code != packets.CodeBadUsernameorPsw {
-			t.Fatalf("connack.Code error, want %d, but got %d", packets.CodeBadUsernameorPsw, ack.Code)
-		}
-	} else {
-		t.Fatalf("invalid type, want %v, got %v", reflect.TypeOf(&packets.Connack{}), reflect.TypeOf(p))
-	}
-	_, err = r.ReadPacket()
-	if err != io.EOF {
-		t.Fatalf("err error, want %s, but got nil", io.EOF)
-	}
-
 }
 
 func TestZeroBytesClientId(t *testing.T) {
@@ -190,7 +108,7 @@ func TestZeroBytesClientId(t *testing.T) {
 	connect.CleanSession = true
 	connect.ClientID = make([]byte, 0)
 	w.WriteAndFlush(connect)
-	p, err := r.ReadPacket()
+	p, err := r.ReadPacket(0x04)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -211,7 +129,7 @@ func TestZeroBytesClientId(t *testing.T) {
 	connect2.CleanSession = true
 	connect2.ClientID = make([]byte, 0)
 	w2.WriteAndFlush(connect2)
-	p, err = r2.ReadPacket()
+	p, err = r2.ReadPacket(0x04)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}

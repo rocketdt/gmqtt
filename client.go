@@ -109,8 +109,9 @@ type client struct {
 	err           error
 	opts          *options //OnConnect之前填充,set up before OnConnect()
 	cleanWillFlag bool     //收到DISCONNECT报文删除遗嘱标志, whether to remove will msg
-	//自定义数据
-	keys  map[string]interface{}
+
+	version packets.Version
+
 	ready chan struct{} //close after session prepared
 
 	connectedAt    int64
@@ -324,13 +325,12 @@ func (client *client) readLoop() {
 	}()
 	for {
 		var packet packets.Packet
-		if client.IsConnected() {
-			if keepAlive := client.opts.keepAlive; keepAlive != 0 { //KeepAlive
-				client.rwc.SetReadDeadline(time.Now().Add(time.Duration(keepAlive/2+keepAlive) * time.Second))
-			}
+		if keepAlive := client.opts.keepAlive; keepAlive != 0 { //KeepAlive
+			client.rwc.SetReadDeadline(time.Now().Add(time.Duration(keepAlive/2+keepAlive) * time.Second))
 		}
-		packet, err = client.packetReader.ReadPacket()
+		packet, err = client.packetReader.ReadPacket(client.version)
 		if err != nil {
+			close(client.in)
 			return
 		}
 		zaplog.Debug("received packet",
@@ -420,20 +420,38 @@ func (client *client) connectWithTimeOut() (ok bool) {
 	}()
 	timeout := time.NewTimer(5 * time.Second)
 	defer timeout.Stop()
+
+	in := make(chan packets.Packet)
+	errChan := make(chan error)
+	go func() {
+		p, err := client.packetReader.ReadPacket(0)
+		if err != nil {
+			errChan <- err
+		} else {
+			zaplog.Debug("received packet",
+				zap.String("packet", p.String()),
+				zap.String("remote", client.rwc.RemoteAddr().String()),
+				zap.String("client_id", client.opts.clientID),
+			)
+			in <- p
+		}
+	}()
 	var p packets.Packet
 	select {
-	case <-client.close:
+	case err = <-errChan:
 		return
-	case p = <-client.in: //first packet
+	case p = <-in:
 	case <-timeout.C:
 		err = ErrConnectTimeOut
 		return
 	}
 	conn, flag := p.(*packets.Connect)
+
 	if !flag {
 		err = ErrInvalStatus
 		return
 	}
+	client.version = conn.Version
 	client.opts.clientID = string(conn.ClientID)
 	if client.opts.clientID == "" {
 		client.opts.clientID = getRandomUUID()
@@ -456,16 +474,8 @@ func (client *client) connectWithTimeOut() (ok bool) {
 		client:  client,
 		connect: conn,
 	}
-	select {
-	case client.server.register <- register:
-	case <-client.close:
-		return
-	}
-	select {
-	case <-client.close:
-		return
-	case <-client.ready:
-	}
+	client.server.register <- register
+	<-client.ready
 	err = register.error
 	return
 }
@@ -683,38 +693,34 @@ func (client *client) readHandle() {
 		client.setError(err)
 		client.wg.Done()
 	}()
-	for {
-		select {
-		case <-client.close:
+	for packet := range client.in {
+		switch packet.(type) {
+		case *packets.Subscribe:
+			client.subscribeHandler(packet.(*packets.Subscribe))
+		case *packets.Publish:
+			client.publishHandler(packet.(*packets.Publish))
+		case *packets.Puback:
+			client.pubackHandler(packet.(*packets.Puback))
+		case *packets.Pubrel:
+			client.pubrelHandler(packet.(*packets.Pubrel))
+		case *packets.Pubrec:
+			client.pubrecHandler(packet.(*packets.Pubrec))
+		case *packets.Pubcomp:
+			client.pubcompHandler(packet.(*packets.Pubcomp))
+		case *packets.Pingreq:
+			client.pingreqHandler(packet.(*packets.Pingreq))
+		case *packets.Unsubscribe:
+			client.unsubscribeHandler(packet.(*packets.Unsubscribe))
+		case *packets.Disconnect:
+			//正常关闭
+			client.cleanWillFlag = true
 			return
-		case packet := <-client.in:
-			switch packet.(type) {
-			case *packets.Subscribe:
-				client.subscribeHandler(packet.(*packets.Subscribe))
-			case *packets.Publish:
-				client.publishHandler(packet.(*packets.Publish))
-			case *packets.Puback:
-				client.pubackHandler(packet.(*packets.Puback))
-			case *packets.Pubrel:
-				client.pubrelHandler(packet.(*packets.Pubrel))
-			case *packets.Pubrec:
-				client.pubrecHandler(packet.(*packets.Pubrec))
-			case *packets.Pubcomp:
-				client.pubcompHandler(packet.(*packets.Pubcomp))
-			case *packets.Pingreq:
-				client.pingreqHandler(packet.(*packets.Pingreq))
-			case *packets.Unsubscribe:
-				client.unsubscribeHandler(packet.(*packets.Unsubscribe))
-			case *packets.Disconnect:
-				//正常关闭
-				client.cleanWillFlag = true
-				return
-			default:
-				err = errors.New("invalid packet")
-				return
-			}
+		default:
+			err = errors.New("invalid packet")
+			return
 		}
 	}
+
 }
 
 //重传处理, 除了重传递publish之外，pubrel也要重传
@@ -775,14 +781,22 @@ func (client *client) redeliver() {
 //server goroutine结束的条件:1客户端断开连接 或 2发生错误
 func (client *client) serve() {
 	defer client.internalClose()
-	client.wg.Add(3)
-	go client.errorWatch()
-	go client.readLoop()                       //read packet
-	go client.writeLoop()                      //write packet
-	if ok := client.connectWithTimeOut(); ok { //链接成功,建立session
-		client.wg.Add(2)
+	if ok := client.connectWithTimeOut(); ok {
+		client.wg.Add(5)
+		go client.errorWatch()
+		go client.readLoop()  //read packet
+		go client.writeLoop() //write packet
 		go client.readHandle()
 		go client.redeliver()
+		client.wg.Wait()
 	}
-	client.wg.Wait()
+	//go client.errorWatch()
+	//go client.readLoop()                       //read packet
+	//go client.writeLoop()                      //write packet
+	//if ok := client.connectWithTimeOut(); ok { //链接成功,建立session
+	//	client.wg.Add(2)
+	//	go client.readHandle()
+	//	go client.redeliver()
+	//}
+
 }

@@ -18,6 +18,7 @@ type Message interface {
 
 // Publish represents the MQTT Publish  packet
 type Publish struct {
+	Version   Version
 	FixHeader *FixHeader
 	Dup       bool   //是否重发 [MQTT-3.3.1.-1]
 	Qos       uint8  //qos等级
@@ -37,6 +38,7 @@ func (p *Publish) String() string {
 // CopyPublish returns the copied publish struct for distribution
 func (p *Publish) CopyPublish() *Publish {
 	pub := &Publish{
+		Version:   p.Version,
 		Dup:       p.Dup,
 		Qos:       p.Qos,
 		Retain:    p.Retain,
@@ -52,8 +54,8 @@ func (p *Publish) CopyPublish() *Publish {
 }
 
 // NewPublishPacket returns a Publish instance by the given FixHeader and io.Reader.
-func NewPublishPacket(fh *FixHeader, r io.Reader) (*Publish, error) {
-	p := &Publish{FixHeader: fh}
+func NewPublishPacket(fh *FixHeader, version Version, r io.Reader) (*Publish, error) {
+	p := &Publish{FixHeader: fh, Version: version}
 	p.Dup = (1 & (fh.Flags >> 3)) > 0
 	p.Qos = (fh.Flags >> 1) & 3
 	if p.Qos == 0 && p.Dup { //[MQTT-3.3.1-2]、 [MQTT-4.3.1-1]
@@ -115,12 +117,14 @@ func (p *Publish) Unpack(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	p.TopicName, size, err = DecodeUTF8String(restBuffer)
-	if err != nil {
-		return err
+	mustUTF8 := true
+	if p.Version == Version_31 {
+		mustUTF8 = false
 	}
+	p.TopicName, size, err = DecodeUTF8String(mustUTF8, restBuffer)
+
 	restBuffer = restBuffer[size:]
-	if !ValidTopicName(p.TopicName) {
+	if !ValidTopicName(mustUTF8, p.TopicName) {
 		return ErrInvalTopicName
 	}
 	if p.Qos > QOS_0 {

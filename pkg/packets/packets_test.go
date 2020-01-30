@@ -7,19 +7,23 @@ import (
 )
 
 var testDecodeUTF8String = []struct {
+	mustUTF8  bool
 	buf       []byte
 	wantBytes []byte
 	wantSize  int
 	wantErr   error
 }{
-	{buf: []byte{0, 2, 0x31, 0x32, 0x33}, wantBytes: []byte{0x31, 0x32}, wantSize: 4, wantErr: nil},
-	{buf: []byte{0, 2, 0x31, 0x32}, wantBytes: []byte{0x31, 0x32}, wantSize: 4, wantErr: nil},
-	{buf: []byte{0, 2, 0x31}, wantBytes: nil, wantSize: 0, wantErr: ErrInvalUTF8String},
-	{buf: []byte{0, 2, 0x01}, wantBytes: nil, wantSize: 0, wantErr: ErrInvalUTF8String},
-	{buf: []byte{0, 2, 0, 0}, wantBytes: nil, wantSize: 0, wantErr: ErrInvalUTF8String},
+	{mustUTF8: true, buf: []byte{0, 2, 0x31, 0x32, 0x33}, wantBytes: []byte{0x31, 0x32}, wantSize: 4, wantErr: nil},
+	{mustUTF8: true, buf: []byte{0, 2, 0x31, 0x32}, wantBytes: []byte{0x31, 0x32}, wantSize: 4, wantErr: nil},
+	{mustUTF8: true, buf: []byte{0, 2, 0x31, 'â'}, wantBytes: nil, wantSize: 0, wantErr: ErrInvalUTF8String},
+	{mustUTF8: true, buf: []byte{0, 2, 0x01}, wantBytes: nil, wantSize: 0, wantErr: ErrInvalUTF8String},
+	{mustUTF8: true, buf: []byte{0, 2, 0, 0}, wantBytes: nil, wantSize: 0, wantErr: ErrInvalUTF8String},
+	{mustUTF8: false, buf: []byte{0, 1, 'â'}, wantBytes: []byte{'â'}, wantSize: 3, wantErr: nil},
+	{mustUTF8: false, buf: []byte{0, 2, 'â'}, wantBytes: nil, wantSize: 0, wantErr: ErrInvalUTF8String},
 }
 
 var testEncodeUTF8String = []struct {
+	mustUTF8  bool
 	buf       []byte
 	wantBytes []byte
 	wantSize  int
@@ -47,7 +51,7 @@ func TestEncodeUTF8String(t *testing.T) {
 
 func TestDecodeUTF8String(t *testing.T) {
 	for _, v := range testDecodeUTF8String {
-		b, size, err := DecodeUTF8String(v.buf)
+		b, size, err := DecodeUTF8String(v.mustUTF8, v.buf)
 		if !bytes.Equal(b, v.wantBytes) {
 			t.Errorf("DecodeUTF8String(%v) error, want %v, but %v", v.buf, v.wantBytes, b)
 		}
@@ -61,35 +65,43 @@ func TestDecodeUTF8String(t *testing.T) {
 }
 
 var topicFilterTest = []struct {
-	input string
-	want  bool
+	mustUTF8 bool
+	input    string
+	want     bool
 }{
-	{input: "sport/tennis#", want: false},
-	{input: "sport/tennis/#/rank", want: false},
-	{input: "//1", want: true},
-	{input: "/+1", want: false},
-	{input: "+", want: true},
-	{input: "#", want: true},
-	{input: "sport/tennis/#", want: true},
-	{input: "/1/+/#", want: true},
-	{input: "/1/+/+/1234", want: true},
+	{mustUTF8: true, input: "sport/tennis#", want: false},
+	{mustUTF8: true, input: "sport/tennis/#/rank", want: false},
+	{mustUTF8: true, input: "//1", want: true},
+	{mustUTF8: true, input: "/+1", want: false},
+	{mustUTF8: true, input: "+", want: true},
+	{mustUTF8: true, input: "#", want: true},
+	{mustUTF8: true, input: "sport/tennis/#", want: true},
+	{mustUTF8: true, input: "/1/+/#", want: true},
+	{mustUTF8: true, input: "/1/+/+/1234", want: true},
+	{mustUTF8: true, input: string([]byte{'/', 'â'}), want: false}, // non utf8
+	{mustUTF8: false, input: string([]byte{'/', 'â'}), want: true},
+	{mustUTF8: false, input: string([]byte{'/', 'â', '/', '#'}), want: true},
 }
 
 var topicNameTest = []struct {
-	input string
-	want  bool
+	mustUTF8 bool
+	input    string
+	want     bool
 }{
-	{input: "sport/tennis#", want: false},
-	{input: "sport/tennis/#/rank", want: false},
-	{input: "//1", want: true},
-	{input: "/+1", want: false},
-	{input: "+", want: false},
-	{input: "#", want: false},
-	{input: "sport/tennis/#", want: false},
-	{input: "/1/+/#", want: false},
-	{input: "/1/+/+/1234", want: false},
-	{input: "/abc/def/gggggg/", want: true},
-	{input: "/9 2", want: true},
+	{mustUTF8: true, input: "sport/tennis#", want: false},
+	{mustUTF8: true, input: "sport/tennis/#/rank", want: false},
+	{mustUTF8: true, input: "//1", want: true},
+	{mustUTF8: true, input: "/+1", want: false},
+	{mustUTF8: true, input: "+", want: false},
+	{mustUTF8: true, input: "#", want: false},
+	{mustUTF8: true, input: "sport/tennis/#", want: false},
+	{mustUTF8: true, input: "/1/+/#", want: false},
+	{mustUTF8: true, input: "/1/+/+/1234", want: false},
+	{mustUTF8: true, input: "/abc/def/gggggg/", want: true},
+	{mustUTF8: true, input: "/9 2", want: true},
+
+	{mustUTF8: false, input: string([]byte{'â', 0x31, 0x32}), want: true},
+	{mustUTF8: false, input: string([]byte{'â', '/'}) + "世界", want: true},
 }
 
 var topicMatchTest = []struct {
@@ -166,7 +178,7 @@ func TestValidUTF8(t *testing.T) {
 //Subscribable Topic Filter
 func TestValidTopicFilter(t *testing.T) {
 	for _, v := range topicFilterTest {
-		if valid := ValidTopicFilter([]byte(v.input)); valid != v.want {
+		if valid := ValidTopicFilter(v.mustUTF8, []byte(v.input)); valid != v.want {
 			t.Fatalf("ValidTopicFilter(%v) error,want %t, but %t", v.input, v.want, valid)
 		}
 	}
@@ -174,7 +186,7 @@ func TestValidTopicFilter(t *testing.T) {
 
 func TestValidTopicName(t *testing.T) {
 	for _, v := range topicNameTest {
-		if valid := ValidTopicName([]byte(v.input)); valid != v.want {
+		if valid := ValidTopicName(v.mustUTF8, []byte(v.input)); valid != v.want {
 			t.Fatalf("ValidTopicName(%v) error,want %t, but %t", v.input, v.want, valid)
 		}
 	}

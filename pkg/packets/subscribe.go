@@ -8,10 +8,12 @@ import (
 
 // Subscribe represents the MQTT Subscribe  packet.
 type Subscribe struct {
+	Version   Version
 	FixHeader *FixHeader
 	PacketID  PacketID
 
 	Topics []Topic //suback响应之前填充
+
 }
 
 func (p *Subscribe) String() string {
@@ -82,12 +84,16 @@ func (p *Subscribe) Unpack(r io.Reader) (err error) {
 	p.PacketID = binary.BigEndian.Uint16(restBuffer[0:2])
 	restBuffer = restBuffer[2:]
 
+	mustUTF8 := true
+	if p.Version == Version_31 {
+		mustUTF8 = false
+	}
 	for {
-		topicName, size, err := DecodeUTF8String(restBuffer)
+		topicFilter, size, err := DecodeUTF8String(mustUTF8, restBuffer)
 		if err != nil {
 			return err
 		}
-		if !ValidTopicFilter(topicName) {
+		if !ValidTopicFilter(mustUTF8, topicFilter) {
 			return ErrInvalTopicFilter
 		}
 		restBuffer = restBuffer[size:]
@@ -96,7 +102,7 @@ func (p *Subscribe) Unpack(r io.Reader) (err error) {
 		if qos > QOS_2 {
 			return ErrInvalQos
 		}
-		p.Topics = append(p.Topics, Topic{Name: string(topicName), Qos: qos})
+		p.Topics = append(p.Topics, Topic{Name: string(topicFilter), Qos: qos})
 		if len(restBuffer) == 0 {
 			break
 		}

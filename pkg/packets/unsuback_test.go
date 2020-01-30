@@ -9,7 +9,7 @@ import (
 func TestWriteUnSuback(t *testing.T) {
 
 	unsubscribeBytes := unsubscribeOneTopicBuffer()
-	packet, err := NewReader(unsubscribeBytes).ReadPacket()
+	packet, err := NewReader(unsubscribeBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
@@ -31,7 +31,7 @@ func TestReadUnSuback(t *testing.T) {
 		0,
 		10,
 	})
-	packet, err := NewReader(unsubackPacketBytes).ReadPacket()
+	packet, err := NewReader(unsubackPacketBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}

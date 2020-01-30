@@ -49,8 +49,9 @@ func messageFromPublish(p *packets.Publish) *msg {
 	}
 }
 
-func messageToPublish(msg packets.Message) *packets.Publish {
+func messageToPublish(version packets.Version, msg packets.Message) *packets.Publish {
 	return &packets.Publish{
+		Version:   version,
 		Dup:       msg.Dup(),
 		Qos:       msg.Qos(),
 		Retain:    msg.Retained(),

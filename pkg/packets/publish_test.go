@@ -38,7 +38,7 @@ func TestWritePublishPacket(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %s,%v", err.Error(), string(v.topicName))
 		}
-		packet, err := NewReader(buf).ReadPacket()
+		packet, err := NewReader(buf).ReadPacket(0)
 		if err != nil {
 			t.Fatalf("unexpected error: %s,%v", err.Error(), string(v.topicName))
 		}
@@ -84,7 +84,7 @@ func TestReadPublishPacket(t *testing.T) {
 	pid := uint16(10)
 	payload := []byte{116, 101, 115, 116, 32, 112, 97, 121, 108, 111, 97, 100}
 
-	packet, err := NewReader(publishPacketBytes).ReadPacket()
+	packet, err := NewReader(publishPacketBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}

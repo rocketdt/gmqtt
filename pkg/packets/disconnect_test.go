@@ -10,7 +10,7 @@ func TestReadDisconnect(t *testing.T) {
 
 	b := []byte{0xe0, 0}
 	buf := bytes.NewBuffer(b)
-	packet, err := NewReader(buf).ReadPacket()
+	packet, err := NewReader(buf).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}

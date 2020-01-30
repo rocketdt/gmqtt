@@ -2,23 +2,22 @@ package packets
 
 import (
 	"bytes"
+	"io"
 	"reflect"
 	"testing"
-
-	"io"
 )
 
 func TestReadConnectPacketErr(t *testing.T) {
 	//[MQTT-3.1.2-3],服务端必须验证CONNECT控制报文的保留标志位（第0位）是否为0，如果不为0必须断开客户端连接
-	b := []byte{16, 12, 0, 4, 77, 81, 84, 84, 04, 01, 00, 02, 31, 32}
+	b := []byte{16, 12, 0, 4, 'M', 'Q', 'T', 'T', 04, 01, 00, 02, 31, 32}
 	buf := bytes.NewBuffer(b)
-	connectPacket, err := NewReader(buf).ReadPacket()
+	connectPacket, err := NewReader(buf).ReadPacket(0)
 	if packet, ok := connectPacket.(*Connect); ok {
 		if packet != nil {
-			t.Fatalf("ReadPacket() packet error,want <nil>,got %v", connectPacket)
+			t.Fatalf("ReadPacket(0) packet error,want <nil>,got %v", connectPacket)
 		}
 		if err != ErrInvalConnFlags {
-			t.Fatalf("ReadPacket() err error,want %s,got %s", ErrInvalConnFlags, err)
+			t.Fatalf("ReadPacket(0) err error,want %s,got %s", ErrInvalConnFlags, err)
 		}
 
 	} else {
@@ -26,9 +25,9 @@ func TestReadConnectPacketErr(t *testing.T) {
 	}
 }
 
-func TestReadConnectPacket(t *testing.T) {
+func TestReadConnectPacketV311(t *testing.T) {
 	connectPacketBytes := bytes.NewBuffer([]byte{16, 52, //FixHeader
-		0, 4, 77, 81, 84, 84, //Protocol Name
+		0, 4, 'M', 'Q', 'T', 'T', //Protocol Name
 		4,    //Protocol Level
 		206,  //11001110 Connect Flags username=1 password=1 Will Flag = 1 WillRetain=0 Will Qos=1 CleanSession=1
 		0, 0, //KeepAlive
@@ -39,7 +38,7 @@ func TestReadConnectPacket(t *testing.T) {
 		0, 8, 116, 101, 115, 116, 112, 97, 115, 115, //password
 	})
 
-	packet, err := NewReader(connectPacketBytes).ReadPacket()
+	packet, err := NewReader(connectPacketBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
@@ -94,9 +93,77 @@ func TestReadConnectPacket(t *testing.T) {
 	}
 }
 
+func TestReadConnectPacketV31(t *testing.T) {
+	connectPacketBytes := bytes.NewBuffer([]byte{16, 54, //FixHeader
+		0, 6, 'M', 'Q', 'I', 's', 'd', 'p', //Protocol Name
+		0x03, //Protocol Level
+		206,  //11001110 Connect Flags username=1 password=1 Will Flag = 1 WillRetain=0 Will Qos=1 CleanSession=1
+		0, 0, //KeepAlive
+		0, 0, //clientID len=0
+		0, 4, 116, 101, 115, 116, //Will Topic
+		0, 12, 84, 101, 115, 116, 32, 80, 97, 121, 108, 111, 97, 100, //Will Message
+		0, 8, 116, 101, 115, 116, 117, 115, 101, 114, //Username
+		0, 8, 116, 101, 115, 116, 112, 97, 115, 115, //password
+	})
+
+	packet, err := NewReader(connectPacketBytes).ReadPacket(0)
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err.Error())
+	}
+
+	if cp, ok := packet.(*Connect); ok {
+		if !bytes.Equal(cp.ProtocolName, []byte("MQIsdp")) {
+			t.Fatalf("protocolName error,want %s, got %s", "MQIsdp", string(cp.ProtocolName))
+		}
+
+		if cp.ProtocolLevel != 0x03 {
+			t.Fatalf("ProtocolLevel error,want 4, got %v", cp.ProtocolLevel)
+		}
+
+		if !cp.UsernameFlag {
+			t.Fatalf("UsernameFlag error,want %t, got %t", true, cp.UsernameFlag)
+		}
+		if !cp.PasswordFlag {
+			t.Fatalf("PasswordFlag error,want %t, got %t", true, cp.PasswordFlag)
+		}
+		if !cp.WillFlag {
+			t.Fatalf("WillFlag error,want %t, got %t", true, cp.WillFlag)
+		}
+		if cp.WillRetain {
+			t.Fatalf("WillRetain error,want %t, got %t", false, cp.WillRetain)
+		}
+		if cp.WillQos != 1 {
+			t.Fatalf("WillRetain error,want %d, got %d", 1, cp.WillQos)
+		}
+		if !cp.CleanSession {
+			t.Fatalf("CleanSession error,want %t, got %t", true, cp.CleanSession)
+		}
+		if cp.KeepAlive != 0 {
+			t.Fatalf("KeepAlive error,want %d, got %d", 0, cp.KeepAlive)
+		}
+		if len(cp.ClientID) != 0 {
+			t.Fatalf("ClientID error,want [], got %d", cp.ClientID)
+		}
+		if !bytes.Equal(cp.WillTopic, []byte{116, 101, 115, 116}) {
+			t.Fatalf("WillTopic error,want %v, got %v", []byte{116, 101, 115, 116}, cp.WillTopic)
+		}
+		if !bytes.Equal(cp.WillMsg, []byte{84, 101, 115, 116, 32, 80, 97, 121, 108, 111, 97, 100}) {
+			t.Fatalf("WillMsg error,want %v, got %v", []byte{84, 101, 115, 116, 32, 80, 97, 121, 108, 111, 97, 100}, cp.WillMsg)
+		}
+		if !bytes.Equal(cp.Username, []byte{116, 101, 115, 116, 117, 115, 101, 114}) {
+			t.Fatalf("Username error,want %v, got %v", []byte{116, 101, 115, 116, 117, 115, 101, 114}, cp.Username)
+		}
+		if !bytes.Equal(cp.Password, []byte{116, 101, 115, 116, 112, 97, 115, 115}) {
+			t.Fatalf("Password error,want %v, got %v", []byte{116, 101, 115, 116, 112, 97, 115, 115}, cp.Password)
+		}
+	} else {
+		t.Fatalf("Packet type error,want %v,got %v", reflect.TypeOf(&Connect{}), reflect.TypeOf(packet))
+	}
+}
+
 func TestConnect_NewConnackPacket_RejectConnection(t *testing.T) {
 	connectPacketBytes := bytes.NewBuffer([]byte{16, 53, //FixHeader
-		0, 4, 77, 81, 84, 84, //Protocol Name
+		0, 4, 'M', 'Q', 'T', 'T', //Protocol Name
 		2,    //Invalid Protocol Level
 		206,  //Connect Flags 11001100 username=1 password=1 Will Flag = 1 WillRetain=0 Will Qos=1 CleanSession=1
 		0, 0, //KeepAlive
@@ -107,7 +174,7 @@ func TestConnect_NewConnackPacket_RejectConnection(t *testing.T) {
 		0, 8, 116, 101, 115, 116, 112, 97, 115, 115, //password
 	})
 
-	packet, _ := NewReader(connectPacketBytes).ReadPacket()
+	packet, _ := NewReader(connectPacketBytes).ReadPacket(0)
 	connectPacket := packet.(*Connect)
 
 	connackPacket := connectPacket.NewConnackPacket(true)
@@ -121,7 +188,7 @@ func TestConnect_NewConnackPacket_RejectConnection(t *testing.T) {
 
 func TestConnect_NewConnackPacket_Success(t *testing.T) {
 	connectPacketBytes := bytes.NewBuffer([]byte{16, 53, //FixHeader
-		0, 4, 77, 81, 84, 84, //Protocol Name
+		0, 4, 'M', 'Q', 'T', 'T', //Protocol Name
 		4,    // Protocol Level
 		204,  //Connect Flags 11001100 username=1 password=1 Will Flag = 1 WillRetain=0 Will Qos=1 CleanSession=0
 		0, 0, //KeepAlive
@@ -132,7 +199,7 @@ func TestConnect_NewConnackPacket_Success(t *testing.T) {
 		0, 8, 116, 101, 115, 116, 112, 97, 115, 115, //password
 	})
 
-	packet, err := NewReader(connectPacketBytes).ReadPacket()
+	packet, err := NewReader(connectPacketBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
@@ -200,7 +267,7 @@ func TestWriteConnect(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %s,%v", err.Error(), string(v.clientID))
 		}
-		packet, err := NewReader(buf).ReadPacket()
+		packet, err := NewReader(buf).ReadPacket(0)
 		if err != nil {
 			t.Fatalf("unexpected error: %s,%v", err.Error(), string(v.clientID))
 		}

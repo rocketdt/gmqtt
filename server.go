@@ -342,18 +342,6 @@ func (srv *server) unregisterHandler(unregister *unregister) {
 		// session is not created, so there is no need to unregister.
 		return
 	}
-clearIn:
-	for {
-		select {
-		case p := <-client.in:
-			if _, ok := p.(*packets.Disconnect); ok {
-				client.cleanWillFlag = true
-			}
-		default:
-			break clearIn
-		}
-	}
-
 	if !client.cleanWillFlag && client.opts.willFlag {
 		willMsg := &packets.Publish{
 			Dup:       false,
@@ -429,7 +417,7 @@ func (srv *server) msgRouterHandler(m *msgRouter) {
 		if srv.config.DeliveryMode == Overlap {
 			for _, t := range topics {
 				if c, ok := srv.clients[cid]; ok {
-					publish := messageToPublish(msg)
+					publish := messageToPublish(c.version, msg)
 					if publish.Qos > t.Qos {
 						publish.Qos = t.Qos
 					}
@@ -449,7 +437,7 @@ func (srv *server) msgRouterHandler(m *msgRouter) {
 				}
 			}
 			if c, ok := srv.clients[cid]; ok {
-				publish := messageToPublish(msg)
+				publish := messageToPublish(c.version, msg)
 				if publish.Qos > maxQos {
 					publish.Qos = maxQos
 				}

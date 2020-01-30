@@ -26,7 +26,7 @@ func unsubscribeOneTopicBuffer() *bytes.Buffer {
 func TestReadUnSubscribePacketWithOneTopic(t *testing.T) {
 
 	unsubscribeBytes := unsubscribeOneTopicBuffer()
-	packet, err := NewReader(unsubscribeBytes).ReadPacket()
+	packet, err := NewReader(unsubscribeBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
@@ -48,7 +48,7 @@ func TestReadUnSubscribePacketWithOneTopic(t *testing.T) {
 
 func TestReadUnSubscribePacketWith3Topics(t *testing.T) {
 	unsubscribeBytes := unsubscribe3TopicsBuffer()
-	packet, err := NewReader(unsubscribeBytes).ReadPacket()
+	packet, err := NewReader(unsubscribeBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
@@ -98,7 +98,7 @@ func TestWriteUnSubscribePacket(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %s,%v", err.Error(), string(v.packetID))
 		}
-		packet, err := NewReader(buf).ReadPacket()
+		packet, err := NewReader(buf).ReadPacket(0)
 		if err != nil {
 			t.Fatalf("unexpected error: %s,%v", err.Error(), string(v.packetID))
 		}
@@ -128,7 +128,7 @@ func TestWriteUnSubscribePacket(t *testing.T) {
 
 func TestUnsubscribe_NewUnSubBack(t *testing.T) {
 	unsubscribeBytes := unsubscribeOneTopicBuffer()
-	packet, err := NewReader(unsubscribeBytes).ReadPacket()
+	packet, err := NewReader(unsubscribeBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
@@ -150,7 +150,7 @@ func TestUnsubscribe_NewUnSubBack(t *testing.T) {
 /*
 func TestSubscribe_NewSubBackWith3Topics(t *testing.T) {
 	subscribeBytes := subscribe3TopicsBuffer()
-	packet, err := NewReader(subscribeBytes).ReadPacket()
+	packet, err := NewReader(subscribeBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}

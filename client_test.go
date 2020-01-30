@@ -138,7 +138,7 @@ func defaultConnectPacket() *packets.Connect {
 		ProtocolLevel: 0x04,
 		UsernameFlag:  true,
 		Username:      []byte{116, 101, 115, 116, 117, 115, 101, 114},
-		ProtocolName:  []byte{77, 81, 84, 84},
+		ProtocolName:  []byte{'M', 'Q', 'T', 'T'},
 		PasswordFlag:  true,
 		Password:      []byte{116, 101, 115, 116, 112, 97, 115, 115},
 		WillRetain:    false,
@@ -148,7 +148,7 @@ func defaultConnectPacket() *packets.Connect {
 		WillQos:       packets.QOS_1,
 		CleanSession:  true,
 		KeepAlive:     30,
-		ClientID:      []byte{77, 81, 84, 84}, //MQTT
+		ClientID:      []byte{'M', 'Q', 'T', 'T'}, //MQTT
 	}
 }
 
@@ -457,7 +457,7 @@ func readPacket(c *rwTestConn) (packets.Packet, error) {
 	case <-c.closec:
 		return nil, io.EOF
 	case b := <-c.writeChan:
-		return packets.NewReader(bytes.NewBuffer(b)).ReadPacket()
+		return packets.NewReader(bytes.NewBuffer(b)).ReadPacket(0x04)
 	}
 
 }
@@ -471,7 +471,7 @@ func readPacketWithTimeOut(c *rwTestConn, timeout time.Duration) (packets.Packet
 	case <-time.After(timeout):
 		return nil, errTestReadTimeout
 	case b := <-c.writeChan:
-		return packets.NewReader(bytes.NewBuffer(b)).ReadPacket()
+		return packets.NewReader(bytes.NewBuffer(b)).ReadPacket(0x04)
 	}
 
 }
@@ -916,7 +916,7 @@ func TestQos1Redelivery(t *testing.T) {
 			originalPid = pub.PacketID
 		}
 	}
-	p, err := readPacketWithTimeOut(c, 2*testRedeliveryInternal)
+	p, err := readPacketWithTimeOut(c, testRedeliveryInternal+1*time.Second)
 	if err != nil {
 		t.Fatalf("unexpected error:%s", err)
 	}
@@ -1020,7 +1020,7 @@ func TestQos2Redelivery(t *testing.T) {
 		if pubrec2.PacketID != pubrec.PacketID {
 			t.Fatalf("PacketID error, want %d, got %d", pubrec.PacketID, pubrec2.PacketID)
 		}
-		p, err = readPacketWithTimeOut(reciver, 10*time.Second)
+		p, err = readPacketWithTimeOut(reciver, 5*time.Second)
 		if err != errTestReadTimeout {
 			t.Fatalf("delivery duplicated messages， %v", reflect.TypeOf(p))
 		}

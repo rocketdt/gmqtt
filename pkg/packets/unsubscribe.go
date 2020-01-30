@@ -70,11 +70,11 @@ func (p *Unsubscribe) Unpack(r io.Reader) error {
 
 	restBuffer = restBuffer[2:]
 	for {
-		topicName, size, err := DecodeUTF8String(restBuffer)
+		topicName, size, err := DecodeUTF8String(true, restBuffer)
 		if err != nil {
 			return err
 		}
-		if !ValidTopicFilter(topicName) {
+		if !ValidTopicFilter(true, topicName) {
 			return ErrInvalTopicFilter
 		}
 		restBuffer = restBuffer[size:]

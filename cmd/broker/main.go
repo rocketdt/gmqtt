@@ -33,6 +33,7 @@ func main() {
 
 	l, _ := zap.NewProduction()
 	//l, _ := zap.NewDevelopment()
+	//l = zap.NewNop()
 	s := gmqtt.NewServer(
 		gmqtt.WithTCPListener(ln),
 		gmqtt.WithWebsocketServer(ws),

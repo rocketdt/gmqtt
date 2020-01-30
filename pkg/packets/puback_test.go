@@ -18,7 +18,7 @@ func TestWritePubackPacket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
-	packet, err := NewReader(buf).ReadPacket()
+	packet, err := NewReader(buf).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
@@ -39,7 +39,7 @@ func TestWritePubackPacket(t *testing.T) {
 func TestReadPubackPacket(t *testing.T) {
 
 	pubackBytes := bytes.NewBuffer([]byte{64, 2, 0, 1})
-	packet, err := NewReader(pubackBytes).ReadPacket()
+	packet, err := NewReader(pubackBytes).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}

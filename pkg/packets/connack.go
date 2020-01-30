@@ -17,6 +17,7 @@ const (
 
 // Connack represents the MQTT Connack  packet
 type Connack struct {
+	Version        Version
 	FixHeader      *FixHeader
 	Code           byte
 	SessionPresent int
@@ -60,8 +61,8 @@ func (c *Connack) Unpack(r io.Reader) error {
 }
 
 // NewConnackPacket returns a Connack instance by the given FixHeader and io.Reader
-func NewConnackPacket(fh *FixHeader, r io.Reader) (*Connack, error) {
-	p := &Connack{FixHeader: fh}
+func NewConnackPacket(fh *FixHeader, version Version, r io.Reader) (*Connack, error) {
+	p := &Connack{FixHeader: fh, Version: version}
 	if fh.Flags != FLAG_RESERVED {
 		return nil, ErrInvalFlags
 	}

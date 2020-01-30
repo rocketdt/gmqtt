@@ -9,7 +9,7 @@ import (
 func TestReadPingreq(t *testing.T) {
 	b := []byte{0xc0, 0}
 	buf := bytes.NewBuffer(b)
-	packet, err := NewReader(buf).ReadPacket()
+	packet, err := NewReader(buf).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
@@ -34,7 +34,7 @@ func TestWritePingreq(t *testing.T) {
 func TestReadPingresp(t *testing.T) {
 	b := []byte{0xd0, 0}
 	buf := bytes.NewBuffer(b)
-	packet, err := NewReader(buf).ReadPacket()
+	packet, err := NewReader(buf).ReadPacket(0)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
