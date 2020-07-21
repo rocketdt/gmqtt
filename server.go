@@ -648,7 +648,7 @@ func (srv *server) serveWebSocket(ws *WsServer) {
 	var err error
 	if ws.CertFile != "" && ws.KeyFile != "" {
 		// err = ws.Server.ListenAndServeTLS(ws.CertFile, ws.KeyFile)
-		cert.ListenAndServeTLS(ws.Server.Addr, nil)
+		cert.ListenAndServeTLS(ws.Server.Addr, srv.wsHandler())
 	} else {
 		err = ws.Server.ListenAndServe()
 	}
