@@ -1,6 +1,7 @@
 package gmqtt
 
 import (
+	"cert"
 	"context"
 	"errors"
 	"net"
@@ -646,7 +647,8 @@ func (ws *wsConn) Write(p []byte) (n int, err error) {
 func (srv *server) serveWebSocket(ws *WsServer) {
 	var err error
 	if ws.CertFile != "" && ws.KeyFile != "" {
-		err = ws.Server.ListenAndServeTLS(ws.CertFile, ws.KeyFile)
+		// err = ws.Server.ListenAndServeTLS(ws.CertFile, ws.KeyFile)
+		cert.ListenAndServeTLS(ws.Server.Addr, nil)
 	} else {
 		err = ws.Server.ListenAndServe()
 	}
