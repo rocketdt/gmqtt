@@ -134,12 +134,17 @@ func (c *Connect) Unpack(r io.Reader) error {
 	if err != nil {
 		return err
 	}
+
+	if bytes.Equal(restBuffer[0:8], []byte{0, 6, 77, 81, 73, 115, 100, 112}) { //protocol name
+		restBuffer = append([]byte{0, 4, 77, 81, 84, 84}, restBuffer[8:]...)
+	}
+
 	if !bytes.Equal(restBuffer[0:6], []byte{0, 4, 77, 81, 84, 84}) { //protocol name
 		return ErrInvalProtocolName // [MQTT-3.1.2-1] 不符合的protocol name直接关闭
 	}
 	c.ProtocolName = []byte{77, 81, 84, 84}
 	c.ProtocolLevel = restBuffer[6]
-	if c.ProtocolLevel != 0x04 {
+	if c.ProtocolLevel != 0x04 && c.ProtocolLevel != 0x03 {
 		c.AckCode = CodeUnacceptableProtocolVersion // [MQTT-3.1.2-2]
 	}
 	connectFlags := restBuffer[7]

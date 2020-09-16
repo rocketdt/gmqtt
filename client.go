@@ -19,7 +19,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/DrmagicE/gmqtt/pkg/packets"
+	"github.com/rocketdt/gmqtt/pkg/packets"
 )
 
 // Error
@@ -338,6 +338,7 @@ func (client *client) readLoop() {
 		}
 		packet, err = client.packetReader.ReadPacket()
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "readLoop: error %s\n", err.Error())
 			return
 		}
 		zaplog.Debug("received packet",

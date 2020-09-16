@@ -4,7 +4,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/DrmagicE/gmqtt/pkg/packets"
+	"github.com/rocketdt/gmqtt/pkg/packets"
 )
 
 type Hooks struct {
