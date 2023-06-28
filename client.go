@@ -426,7 +426,6 @@ func (client *client) connectWithTimeOut() (ok bool) {
 		} else {
 			ok = true
 		}
-		close(client.connected)
 	}()
 	timeout := time.NewTimer(5 * time.Second)
 	defer timeout.Stop()
@@ -510,7 +509,7 @@ func (client *client) internalClose() {
 	client.setDisconnectedAt(time.Now())
 	client.server.statsManager.addClientDisconnected()
 	client.server.statsManager.decSessionActive()
-	close(client.closed)
+	close(client.close)
 }
 
 // 这里的publish都是已经copy后的publish了
