@@ -509,7 +509,6 @@ func (client *client) internalClose() {
 	client.setDisconnectedAt(time.Now())
 	client.server.statsManager.addClientDisconnected()
 	client.server.statsManager.decSessionActive()
-	close(client.close)
 }
 
 // 这里的publish都是已经copy后的publish了
