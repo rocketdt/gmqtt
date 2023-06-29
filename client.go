@@ -274,12 +274,17 @@ func (client *client) setError(err error) {
 	case client.error <- err:
 		if err != nil && err != io.EOF {
 			zaplog.Error("connection lost", zap.String("error_msg", err.Error()))
+
+			client.close <- struct{}{}
+			client.rwc.Close()
 		}
 	default:
 	}
 }
 
 func (client *client) writeLoop() {
+	// fmt.Fprintf(os.Stderr, "writeLoop: <--\n")
+
 	var err error
 	defer func() {
 		if re := recover(); re != nil {
@@ -287,6 +292,7 @@ func (client *client) writeLoop() {
 		}
 		client.setError(err)
 		client.wg.Done()
+		// fmt.Fprintf(os.Stderr, "writeLoop: -->\n")
 	}()
 	for {
 		select {
@@ -321,14 +327,16 @@ func (client *client) writePacket(packet packets.Packet) error {
 }
 
 func (client *client) readLoop() {
+	// fmt.Fprintf(os.Stderr, "readLoop: <--\n")
+
 	var err error
 	defer func() {
 		if re := recover(); re != nil {
 			err = errors.New(fmt.Sprint(re))
 		}
 		client.setError(err)
-		close(client.in)
 		client.wg.Done()
+		// fmt.Fprintf(os.Stderr, "readLoop: -->\n")
 	}()
 	for {
 		var packet packets.Packet
