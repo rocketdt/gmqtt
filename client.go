@@ -269,13 +269,26 @@ func (o *options) RemoteAddr() net.Addr {
 	return o.remoteAddr
 }
 
+func isClosed(ch <-chan struct{}) bool {
+	select {
+	case <-ch:
+		return false
+	default:
+	}
+
+	return true
+}
+
 func (client *client) setError(err error) {
 	select {
 	case client.error <- err:
 		if err != nil && err != io.EOF {
 			zaplog.Error("connection lost", zap.String("error_msg", err.Error()))
 
-			client.close <- struct{}{}
+			if !isClosed(client.close) {
+				client.close <- struct{}{}
+			}
+
 			client.rwc.Close()
 		}
 	default:
