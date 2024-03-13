@@ -282,7 +282,7 @@ func isClosed(ch <-chan struct{}) bool {
 func (client *client) setError(err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Frintf(os.Stderr, "Recovered in setError: %+v\n", r)
+			fmt.Fprintf(os.Stderr, "Recovered in setError: %+v\n", r)
 		}
 	}()
 
