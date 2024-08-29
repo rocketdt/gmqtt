@@ -7,7 +7,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
+	// "go.uber.org/zap"
+	"github.com/rocketdt/gmqtt/zap"
 
 	"github.com/DrmagicE/gmqtt"
 	"github.com/DrmagicE/gmqtt/subscription"

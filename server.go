@@ -12,7 +12,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
+	// "go.uber.org/zap"
+	"github.com/rocketdt/gmqtt/zap"
 
 	retained_trie "github.com/rocketdt/gmqtt/retained/trie"
 	subscription_trie "github.com/rocketdt/gmqtt/subscription/trie"

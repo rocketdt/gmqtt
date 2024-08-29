@@ -17,7 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.uber.org/zap"
+	// "go.uber.org/zap"
+	"github.com/rocketdt/gmqtt/zap"
 
 	"github.com/rocketdt/gmqtt/pkg/packets"
 )

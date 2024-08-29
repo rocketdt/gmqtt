@@ -3,7 +3,8 @@ package gmqtt
 import (
 	"net"
 
-	"go.uber.org/zap"
+	// "go.uber.org/zap"
+	"github.com/rocketdt/gmqtt/zap"
 )
 
 type Options func(srv *server)

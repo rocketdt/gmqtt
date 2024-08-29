@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"go.uber.org/zap"
+	// "go.uber.org/zap"
+	"github.com/rocketdt/gmqtt/zap"
 
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 )

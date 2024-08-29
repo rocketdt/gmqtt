@@ -10,7 +10,8 @@ import (
 	"syscall"
 
 	"github.com/DrmagicE/gmqtt/pkg/packets"
-	"go.uber.org/zap"
+	// "go.uber.org/zap"
+	"github.com/rocketdt/gmqtt/zap"
 )
 
 //see /examples for more details.

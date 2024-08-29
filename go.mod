@@ -9,5 +9,4 @@ require (
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/prometheus/client_golang v1.4.0
 	github.com/stretchr/testify v1.4.0
-	go.uber.org/zap v1.13.0
 )

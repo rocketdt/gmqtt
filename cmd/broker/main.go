@@ -9,7 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"go.uber.org/zap"
+	// "go.uber.org/zap"
+	"github.com/rocketdt/gmqtt/zap"
 
 	"github.com/DrmagicE/gmqtt"
 	"github.com/DrmagicE/gmqtt/plugin/management"
