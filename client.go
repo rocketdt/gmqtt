@@ -359,27 +359,33 @@ func (client *client) readLoop() {
 		// fmt.Fprintf(os.Stderr, "readLoop: -->\n")
 	}()
 	for {
-		var packet packets.Packet
-		if client.IsConnected() {
-			if keepAlive := client.opts.keepAlive; keepAlive != 0 { //KeepAlive
-				client.rwc.SetReadDeadline(time.Now().Add(time.Duration(keepAlive/2+keepAlive) * time.Second))
-			}
-		}
-		packet, err = client.packetReader.ReadPacket()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "readLoop: error %s\n", err.Error())
+		select {
+		case <-client.close:
 			return
+
+		default:
+			var packet packets.Packet
+			if client.IsConnected() {
+				if keepAlive := client.opts.keepAlive; keepAlive != 0 { //KeepAlive
+					client.rwc.SetReadDeadline(time.Now().Add(time.Duration(keepAlive/2+keepAlive) * time.Second))
+				}
+			}
+			packet, err = client.packetReader.ReadPacket()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "readLoop: error %s\n", err.Error())
+				return
+			}
+			zaplog.Debug("received packet",
+				zap.String("packet", packet.String()),
+				zap.String("remote", client.rwc.RemoteAddr().String()),
+				zap.String("client_id", client.opts.clientID),
+			)
+			client.server.statsManager.packetReceived(packet)
+			if pub, ok := packet.(*packets.Publish); ok {
+				client.server.statsManager.messageReceived(pub.Qos)
+			}
+			client.in <- packet
 		}
-		zaplog.Debug("received packet",
-			zap.String("packet", packet.String()),
-			zap.String("remote", client.rwc.RemoteAddr().String()),
-			zap.String("client_id", client.opts.clientID),
-		)
-		client.server.statsManager.packetReceived(packet)
-		if pub, ok := packet.(*packets.Publish); ok {
-			client.server.statsManager.messageReceived(pub.Qos)
-		}
-		client.in <- packet
 	}
 }
 
