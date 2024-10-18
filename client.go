@@ -289,8 +289,10 @@ func (client *client) setError(err error) {
 
 	select {
 	case client.error <- err:
-		if err != nil && err != io.EOF {
-			zaplog.Error("connection lost", zap.String("error_msg", err.Error()))
+		if err != nil {
+			if err != io.EOF {
+				zaplog.Error("connection lost", zap.String("error_msg", err.Error()))
+			}
 
 			if !isClosed(client.close) {
 				client.close <- struct{}{}

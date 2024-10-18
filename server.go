@@ -4,8 +4,10 @@ import (
 	"cert"
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -234,6 +236,7 @@ func (srv *server) registerHandler(register *register) {
 				zap.String("remote", client.rwc.RemoteAddr().String()),
 				zap.String("client_id", client.OptionsReader().ClientID()),
 			)
+			fmt.Fprintf(os.Stderr, "Duplicate ClientID %s ...\n", client.opts.clientID)
 			oldClient.setSwitching()
 			<-oldClient.Close()
 			if oldClient.opts.willFlag {
