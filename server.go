@@ -253,10 +253,12 @@ func (srv *server) registerHandler(register *register) {
 				}()
 			}
 			if !client.opts.cleanSession && !oldClient.opts.cleanSession { //reuse old session
+				fmt.Fprintf(os.Stderr, "Session reuse %s ...\n", client.opts.clientID)
 				sessionReuse = true
 			}
 		} else if oldClient.IsDisConnected() {
 			if !client.opts.cleanSession {
+				fmt.Fprintf(os.Stderr, "Session reuse (from disconnected) %s ...\n", client.opts.clientID)
 				sessionReuse = true
 			} else if srv.hooks.OnSessionTerminated != nil {
 				srv.hooks.OnSessionTerminated(context.Background(), oldClient, ConflictTermination)
