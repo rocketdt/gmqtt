@@ -295,11 +295,11 @@ func (client *client) setError(err error) {
 			}
 
 			if !isClosed(client.close) {
-				fmt.Fprintf(os.Stderr, "setError: close client\n")
+				fmt.Fprintf(os.Stderr, "setError: close client %s\n", client.opts.clientID)
 				client.close <- struct{}{}
 			}
 
-			fmt.Fprintf(os.Stderr, "setError: close client rwc\n")
+			fmt.Fprintf(os.Stderr, "setError: close client %s rwc\n", client.opts.clientID)
 			client.rwc.Close()
 		}
 	default:
@@ -376,7 +376,7 @@ func (client *client) readLoop() {
 			}
 			packet, err = client.packetReader.ReadPacket()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "readLoop: error %s\n", err.Error())
+				fmt.Fprintf(os.Stderr, "[%s] readLoop: error %s\n", client.opts.clientID, err.Error())
 				return
 			}
 			zaplog.Debug("received packet",
